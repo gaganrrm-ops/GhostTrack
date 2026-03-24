@@ -97,6 +97,10 @@ def phone_track():
         else:
             type_str = 'Other'
 
+        # Build Truecaller search URL (best free source for registered owner names)
+        number_digits = e164_format.lstrip('+')
+        truecaller_url = f'https://www.truecaller.com/search/{region_code.lower()}/{number_digits}'
+
         result = {
             'location': location,
             'region_code': region_code,
@@ -110,6 +114,7 @@ def phone_track():
             'e164': e164_format,
             'country_code': parsed.country_code,
             'type': type_str,
+            'truecaller_url': truecaller_url,
         }
         return jsonify({'success': True, 'data': result})
     except Exception as e:

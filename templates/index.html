@@ -520,18 +520,24 @@
         const d = j.data;
         out.innerHTML = `
           <div class="out-title">Phone Number Analysis</div>
+          <div class="row" style="background:#0a1f0a;border:1px solid #1a4a1a;">
+            <span class="key" style="color:#aaa;">Owner Name</span>
+            <span class="val">
+              <span style="color:#555;font-size:12px;">Not available via free API &mdash; </span>
+              <a href="${d.truecaller_url}" target="_blank" rel="noopener noreferrer" style="color:#00ff41;">Lookup on Truecaller &rarr;</a>
+            </span>
+          </div>
+          ${row('Carrier / Network', d.carrier || '—')}
           ${row('Location', d.location)}
           ${row('Region Code', d.region_code)}
-          ${row('Timezone', d.timezone)}
-          ${row('Carrier', d.carrier)}
+          ${row('Number Type', d.type)}
           ${row('Valid Number', d.is_valid)}
-          ${row('Possible Number', d.is_possible)}
+          ${row('Timezone', d.timezone)}
           ${row('International Format', d.international_format)}
           ${row('Mobile Dial Format', d.mobile_format)}
           ${row('National Number', d.national_number)}
           ${row('E.164 Format', d.e164)}
           ${row('Country Code', '+' + d.country_code)}
-          ${row('Number Type', d.type)}
         `;
       }
     } catch (e) {
