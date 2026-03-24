@@ -1,10 +1,26 @@
 from flask import Flask, request, jsonify, render_template
 import json
+import os
+import asyncio
 import requests
 import phonenumbers
 from phonenumbers import carrier, geocoder, timezone
 
 app = Flask(__name__)
+
+TC_CONFIG_FILE = 'truecaller_config.json'
+
+
+def tc_load():
+    if os.path.exists(TC_CONFIG_FILE):
+        with open(TC_CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+
+def tc_save(data):
+    with open(TC_CONFIG_FILE, 'w') as f:
+        json.dump(data, f)
 
 
 @app.route('/')
@@ -70,6 +86,68 @@ def ip_track():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ── Truecaller integration ──────────────────────────────────────────────────
+
+@app.route('/api/truecaller/status', methods=['GET'])
+def truecaller_status():
+    config = tc_load()
+    return jsonify({'logged_in': bool(config.get('installation_id'))})
+
+
+@app.route('/api/truecaller/login', methods=['POST'])
+def truecaller_login():
+    data = request.get_json()
+    phone = data.get('phone', '').strip()
+    if not phone:
+        return jsonify({'success': False, 'error': 'Phone number required'}), 400
+    try:
+        import truecallerpy
+        result = asyncio.run(truecallerpy.login(phone))
+        if result.get('status_code') != 200 or 'error' in result:
+            msg = result.get('message') or result.get('error') or 'Login failed'
+            return jsonify({'success': False, 'error': msg})
+        # Save requestId and phone for OTP step
+        tc_save({'phone': phone, 'login_data': result['data']})
+        return jsonify({'success': True, 'message': 'OTP sent to your number'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/truecaller/verify', methods=['POST'])
+def truecaller_verify():
+    data = request.get_json()
+    otp = data.get('otp', '').strip()
+    if not otp:
+        return jsonify({'success': False, 'error': 'OTP required'}), 400
+    try:
+        import truecallerpy
+        config = tc_load()
+        phone = config.get('phone')
+        login_data = config.get('login_data')
+        if not phone or not login_data:
+            return jsonify({'success': False, 'error': 'Start login first'}), 400
+        result = asyncio.run(truecallerpy.verify_otp(phone, login_data, otp))
+        if result.get('status_code') != 200 or 'error' in result:
+            msg = result.get('message') or result.get('error') or 'OTP verification failed'
+            return jsonify({'success': False, 'error': msg})
+        installation_id = result.get('data', {}).get('installationId')
+        if not installation_id:
+            return jsonify({'success': False, 'error': 'Could not get installation ID — wrong OTP?'})
+        tc_save({'installation_id': installation_id, 'phone': phone})
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/truecaller/disconnect', methods=['POST'])
+def truecaller_disconnect():
+    if os.path.exists(TC_CONFIG_FILE):
+        os.remove(TC_CONFIG_FILE)
+    return jsonify({'success': True})
+
+
+# ── Phone tracker ───────────────────────────────────────────────────────────
+
 @app.route('/api/phone-track', methods=['POST'])
 def phone_track():
     data = request.get_json()
@@ -97,11 +175,27 @@ def phone_track():
         else:
             type_str = 'Other'
 
-        # Build Truecaller search URL (best free source for registered owner names)
+        # Try Truecaller name lookup if connected
+        owner_name = None
+        tc_config = tc_load()
+        installation_id = tc_config.get('installation_id')
+        if installation_id:
+            try:
+                import truecallerpy
+                tc_result = asyncio.run(
+                    truecallerpy.search_phonenumber(e164_format, region_code, installation_id)
+                )
+                entries = tc_result.get('data', {}).get('data', [])
+                if entries:
+                    owner_name = entries[0].get('name')
+            except Exception:
+                pass  # Fall through to show name as None
+
         number_digits = e164_format.lstrip('+')
         truecaller_url = f'https://www.truecaller.com/search/{region_code.lower()}/{number_digits}'
 
         result = {
+            'owner_name': owner_name,
             'location': location,
             'region_code': region_code,
             'timezone': timezones,
@@ -115,6 +209,7 @@ def phone_track():
             'country_code': parsed.country_code,
             'type': type_str,
             'truecaller_url': truecaller_url,
+            'tc_connected': bool(installation_id),
         }
         return jsonify({'success': True, 'data': result})
     except Exception as e:
