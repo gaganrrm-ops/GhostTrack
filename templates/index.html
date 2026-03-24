@@ -308,6 +308,102 @@
         background: #001a07;
       }
     }
+
+    /* ── Truecaller card ── */
+    .tc-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .tc-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      background: var(--bg2);
+      -webkit-appearance: none;
+      font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .tc-badge:active { opacity: 0.7; }
+    .tc-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #333; }
+    .tc-badge.connected { border-color: var(--green); color: var(--green); }
+    .tc-badge.connected .dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
+
+    .tc-card {
+      display: none;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .tc-card.show { display: block; animation: fadeIn 0.2s ease; }
+
+    .tc-card-title {
+      font-size: 12px;
+      letter-spacing: 2px;
+      color: var(--green);
+      margin-bottom: 14px;
+      text-transform: uppercase;
+    }
+
+    .tc-card .form-group { margin-bottom: 12px; }
+
+    .tc-card .btn {
+      padding: 13px;
+      font-size: 12px;
+      letter-spacing: 2px;
+    }
+
+    .tc-msg {
+      font-size: 12px;
+      margin-top: 10px;
+      min-height: 18px;
+    }
+
+    .tc-msg.ok  { color: var(--green); }
+    .tc-msg.err { color: var(--red); }
+    .tc-msg.inf { color: var(--muted); }
+
+    .tc-disconnect {
+      background: transparent;
+      border: 1px solid #333;
+      color: var(--muted);
+      padding: 10px;
+      width: 100%;
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 2px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 8px;
+      -webkit-appearance: none;
+    }
+
+    .tc-disconnect:active { color: var(--red); border-color: var(--red); }
+
+    .name-row {
+      background: #0a1f0a;
+      border: 1px solid #1a5a1a;
+      border-radius: 4px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+    }
+
+    .name-label { font-size: 11px; color: #888; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+    .name-value { font-size: 18px; color: var(--green); font-weight: bold; letter-spacing: 1px; }
+    .name-value.unknown { font-size: 13px; color: #444; font-weight: normal; }
   </style>
 </head>
 <body>
@@ -377,9 +473,59 @@
 
     <!-- PHONE TRACKER -->
     <div class="panel" id="panel-phone">
-      <p class="panel-title">Phone Number Tracker</p>
+      <!-- Header row: title + Truecaller connect badge -->
+      <div class="tc-bar">
+        <p class="panel-title" style="margin-bottom:0;">Phone Number Tracker</p>
+        <button class="tc-badge" id="tc-badge" onclick="toggleTcCard()">
+          <span class="dot"></span>
+          <span id="tc-badge-text">Connect Truecaller</span>
+        </button>
+      </div>
+
+      <!-- Truecaller login card (hidden by default) -->
+      <div class="tc-card" id="tc-card">
+
+        <!-- Step 1: Enter your phone number -->
+        <div id="tc-step1">
+          <div class="tc-card-title">Connect Truecaller Account</div>
+          <p style="color:var(--muted);font-size:12px;margin-bottom:14px;line-height:1.7;">
+            Enter <b style="color:#aaa">your own</b> phone number to receive an OTP from Truecaller. After connecting, owner names are shown automatically.
+          </p>
+          <div class="form-group">
+            <label>Your Phone Number</label>
+            <input type="text" id="tc-phone" placeholder="+91XXXXXXXXXX" inputmode="tel" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+          </div>
+          <button class="btn" id="tc-send-btn" onclick="tcSendOtp()">[ Send OTP ]</button>
+          <div class="tc-msg inf" id="tc-msg1"></div>
+        </div>
+
+        <!-- Step 2: Enter OTP -->
+        <div id="tc-step2" style="display:none;">
+          <div class="tc-card-title">Enter OTP</div>
+          <p style="color:var(--muted);font-size:12px;margin-bottom:14px;line-height:1.7;">
+            Check your SMS and enter the OTP sent by Truecaller.
+          </p>
+          <div class="form-group">
+            <label>OTP Code</label>
+            <input type="text" id="tc-otp" placeholder="e.g. 123456" inputmode="numeric" autocomplete="one-time-code" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+          </div>
+          <button class="btn" id="tc-verify-btn" onclick="tcVerifyOtp()">[ Verify OTP ]</button>
+          <div class="tc-msg inf" id="tc-msg2"></div>
+        </div>
+
+        <!-- Connected state -->
+        <div id="tc-step3" style="display:none;">
+          <div class="tc-card-title" style="color:var(--green);">&#10003; Truecaller Connected</div>
+          <p style="color:var(--muted);font-size:12px;margin-bottom:14px;line-height:1.7;">
+            Owner names will now appear automatically when you track a phone number.
+          </p>
+          <button class="tc-disconnect" onclick="tcDisconnect()">[ Disconnect ]</button>
+        </div>
+
+      </div>
+
       <div class="form-group">
-        <label>Phone Number (with country code)</label>
+        <label>Phone Number to Track (with country code)</label>
         <input type="text" id="phone-input" placeholder="e.g. +6281234567890" inputmode="tel" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
       </div>
       <button class="btn" id="phone-btn" onclick="trackPhone()">[ Track Number ]</button>
@@ -501,11 +647,121 @@
     stopLoad('myip-btn');
   }
 
+  // ─── TRUECALLER ───
+  let tcCardOpen = false;
+
+  async function checkTcStatus() {
+    try {
+      const res = await fetch('/api/truecaller/status');
+      const j = await res.json();
+      setTcBadge(j.logged_in);
+      if (j.logged_in) showTcStep(3);
+    } catch (_) {}
+  }
+
+  function setTcBadge(connected) {
+    const badge = document.getElementById('tc-badge');
+    const text  = document.getElementById('tc-badge-text');
+    if (connected) {
+      badge.classList.add('connected');
+      text.textContent = 'Truecaller Connected';
+    } else {
+      badge.classList.remove('connected');
+      text.textContent = 'Connect Truecaller';
+    }
+  }
+
+  function toggleTcCard() {
+    tcCardOpen = !tcCardOpen;
+    document.getElementById('tc-card').classList.toggle('show', tcCardOpen);
+  }
+
+  function showTcStep(n) {
+    [1,2,3].forEach(i => {
+      document.getElementById('tc-step' + i).style.display = i === n ? 'block' : 'none';
+    });
+  }
+
+  async function tcSendOtp() {
+    const phone = document.getElementById('tc-phone').value.trim();
+    if (!phone) { document.getElementById('tc-phone').focus(); return; }
+    const btn = document.getElementById('tc-send-btn');
+    const msg = document.getElementById('tc-msg1');
+    btn.disabled = true;
+    msg.className = 'tc-msg inf';
+    msg.textContent = '[ sending OTP... ]';
+    try {
+      const res = await fetch('/api/truecaller/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const j = await res.json();
+      if (j.success) {
+        msg.className = 'tc-msg ok';
+        msg.textContent = '[ OTP sent! ]';
+        setTimeout(() => { msg.textContent = ''; showTcStep(2); }, 800);
+      } else {
+        msg.className = 'tc-msg err';
+        msg.textContent = '[ ERROR ] ' + j.error;
+        btn.disabled = false;
+      }
+    } catch (e) {
+      msg.className = 'tc-msg err';
+      msg.textContent = '[ ERROR ] ' + e.message;
+      btn.disabled = false;
+    }
+  }
+
+  async function tcVerifyOtp() {
+    const otp = document.getElementById('tc-otp').value.trim();
+    if (!otp) { document.getElementById('tc-otp').focus(); return; }
+    const btn = document.getElementById('tc-verify-btn');
+    const msg = document.getElementById('tc-msg2');
+    btn.disabled = true;
+    msg.className = 'tc-msg inf';
+    msg.textContent = '[ verifying... ]';
+    try {
+      const res = await fetch('/api/truecaller/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otp })
+      });
+      const j = await res.json();
+      if (j.success) {
+        msg.className = 'tc-msg ok';
+        msg.textContent = '[ connected! ]';
+        setTcBadge(true);
+        setTimeout(() => { showTcStep(3); }, 600);
+      } else {
+        msg.className = 'tc-msg err';
+        msg.textContent = '[ ERROR ] ' + j.error;
+        btn.disabled = false;
+      }
+    } catch (e) {
+      msg.className = 'tc-msg err';
+      msg.textContent = '[ ERROR ] ' + e.message;
+      btn.disabled = false;
+    }
+  }
+
+  async function tcDisconnect() {
+    await fetch('/api/truecaller/disconnect', { method: 'POST' });
+    setTcBadge(false);
+    showTcStep(1);
+    document.getElementById('tc-phone').value = '';
+    document.getElementById('tc-otp').value = '';
+    document.getElementById('tc-msg1').textContent = '';
+    document.getElementById('tc-msg2').textContent = '';
+    document.getElementById('tc-send-btn').disabled = false;
+    document.getElementById('tc-verify-btn').disabled = false;
+  }
+
   // ─── PHONE TRACKER ───
   async function trackPhone() {
     const phone = document.getElementById('phone-input').value.trim();
     if (!phone) { document.getElementById('phone-input').focus(); return; }
-    startLoad('phone-btn', 'phone-output');
+    startLoad('phone-btn', 'phone-output', '[ scanning... ]');
     try {
       const res = await fetch('/api/phone-track', {
         method: 'POST',
@@ -518,15 +774,32 @@
         out.innerHTML = `<span class="error">[ ERROR ] ${j.error}</span>`;
       } else {
         const d = j.data;
+
+        // Name row: show real name if TC connected, else fallback link
+        let nameHtml;
+        if (d.tc_connected && d.owner_name) {
+          nameHtml = `<div class="name-row">
+            <div class="name-label">Owner Name (via Truecaller)</div>
+            <div class="name-value">${d.owner_name}</div>
+          </div>`;
+        } else if (d.tc_connected && !d.owner_name) {
+          nameHtml = `<div class="name-row">
+            <div class="name-label">Owner Name</div>
+            <div class="name-value unknown">Not found in Truecaller database</div>
+          </div>`;
+        } else {
+          nameHtml = `<div class="name-row">
+            <div class="name-label">Owner Name</div>
+            <div class="name-value unknown">
+              Connect Truecaller above &uarr; or
+              <a href="${d.truecaller_url}" target="_blank" rel="noopener noreferrer" style="color:#00ff41;">open Truecaller &rarr;</a>
+            </div>
+          </div>`;
+        }
+
         out.innerHTML = `
           <div class="out-title">Phone Number Analysis</div>
-          <div class="row" style="background:#0a1f0a;border:1px solid #1a4a1a;">
-            <span class="key" style="color:#aaa;">Owner Name</span>
-            <span class="val">
-              <span style="color:#555;font-size:12px;">Not available via free API &mdash; </span>
-              <a href="${d.truecaller_url}" target="_blank" rel="noopener noreferrer" style="color:#00ff41;">Lookup on Truecaller &rarr;</a>
-            </span>
-          </div>
+          ${nameHtml}
           ${row('Carrier / Network', d.carrier || '—')}
           ${row('Location', d.location)}
           ${row('Region Code', d.region_code)}
@@ -592,6 +865,11 @@
   document.getElementById('ip-input').addEventListener('keydown', e => { if (e.key === 'Enter') trackIP(); });
   document.getElementById('phone-input').addEventListener('keydown', e => { if (e.key === 'Enter') trackPhone(); });
   document.getElementById('user-input').addEventListener('keydown', e => { if (e.key === 'Enter') trackUsername(); });
+  document.getElementById('tc-phone').addEventListener('keydown', e => { if (e.key === 'Enter') tcSendOtp(); });
+  document.getElementById('tc-otp').addEventListener('keydown', e => { if (e.key === 'Enter') tcVerifyOtp(); });
+
+  // Check Truecaller login status on page load
+  checkTcStatus();
 </script>
 
 </body>
